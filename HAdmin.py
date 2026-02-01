@@ -10,11 +10,15 @@ from telethon.tl.types import ChatBannedRights
 
 @loader.tds
 class HAdmin(loader.Module):
+    """
+    Админ-модуль для управления чатами.
+    Все команды начинаются с ha
+    """
+
     strings = {
         "name": "HAdmin",
 
         "no_user": "❌ Пользователь не найден",
-        "no_rights": "❌ Недостаточно прав",
 
         "forever": "навсегда",
         "reason": "📄 Причина: {r}",
@@ -42,6 +46,10 @@ class HAdmin(loader.Module):
             return None, args
 
     def _parse_time(self, args):
+        """
+        Парсинг времени:
+        10m, 1h, 30s, 7d
+        """
         if not args:
             return None
 
@@ -62,6 +70,13 @@ class HAdmin(loader.Module):
         )
 
     async def hamutecmd(self, m):
+        """
+        haMute <user> [time] [reason]
+        Мут пользователя (временно или навсегда)
+
+        user  : reply / @username / user_id
+        time  : 10m, 1h, 30s, 7d
+        """
         args = m.raw_text.split()[1:]
         u, args = await self._target(m, args)
         if not u:
@@ -88,6 +103,10 @@ class HAdmin(loader.Module):
         await utils.answer(m, txt)
 
     async def haunmutecmd(self, m):
+        """
+        haUnmute <user>
+        Снять мут с пользователя
+        """
         args = m.raw_text.split()[1:]
         u, _ = await self._target(m, args)
         if not u:
@@ -101,6 +120,10 @@ class HAdmin(loader.Module):
         )
 
     async def habancmd(self, m):
+        """
+        haBan <user> [time] [reason]
+        Бан пользователя (временно или навсегда)
+        """
         args = m.raw_text.split()[1:]
         u, args = await self._target(m, args)
         if not u:
@@ -127,6 +150,10 @@ class HAdmin(loader.Module):
         await utils.answer(m, txt)
 
     async def haunbancmd(self, m):
+        """
+        haUnban <user>
+        Разбанить пользователя
+        """
         args = m.raw_text.split()[1:]
         u, _ = await self._target(m, args)
         if not u:
@@ -140,6 +167,10 @@ class HAdmin(loader.Module):
         )
 
     async def hakickcmd(self, m):
+        """
+        haKick <user>
+        Кикнуть пользователя из чата
+        """
         args = m.raw_text.split()[1:]
         u, _ = await self._target(m, args)
         if not u:
