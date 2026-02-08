@@ -6,7 +6,7 @@ from telethon import events
 import re
 import aiohttp
 
-__version__ = (3, 2, 0, 0)
+__version__ = (3, 3, 0, 0)
 
 ENG = "qwertyuiop[]asdfghjkl;'zxcvbnm,./"
 RUS = "йцукенгшщзхъфывапролджэячсмитьбю."
@@ -21,20 +21,17 @@ WORD_RE = re.compile(r"[а-яА-ЯёЁ]+")
 @loader.tds
 class SMReplacer(loader.Module):
     """
-    Умная автозамена раскладки EN ↔ RU
-    и корректирование слов по публичному словарю
+    Автозамена раскладки EN ↔ RU
+    и коррекция текста по словарю
     """
 
     strings = {
         "name": "SMReplacer",
         "smenru_on": "⌨️ Автозамена раскладки включена",
         "smenru_off": "⌨️ Автозамена раскладки выключена",
-        "smcorrect_on": "🧠 Коррекция слов включена",
-        "smcorrect_off": "🧠 Коррекция слов выключена",
-        "dict_loading": "📥 Загружаю словарь…",
-        "dict_loaded": "📚 Словарь загружен: {} слов",
-        "dict_error": "⚠️ Не удалось загрузить словарь",
-        "usage": "Используй: on / off"
+        "smcorrect_on": "🧠 Коррекция по словарю включена",
+        "smcorrect_off": "🧠 Коррекция по словарю выключена",
+        "usage": "Используй: on / off",
     }
 
     def __init__(self):
@@ -67,8 +64,6 @@ class SMReplacer(loader.Module):
                 for line in text.splitlines()
                 if line.strip()
             }
-        except Exception:
-            self.words = set()
         finally:
             self.loading = False
 
@@ -78,10 +73,9 @@ class SMReplacer(loader.Module):
             for word in WORD_RE.findall(text.lower())
         )
 
-    @loader.command()
-    async def smenru(self, message):
+    async def smenrucmd(self, message):
         """
-        Автозамена раскладки EN ↔ RU
+        on / off
         """
         arg = utils.get_args_raw(message).lower()
         if arg == "on":
@@ -93,10 +87,9 @@ class SMReplacer(loader.Module):
         else:
             await utils.answer(message, self.strings("usage"))
 
-    @loader.command()
-    async def smcorrect(self, message):
+    async def smcorrectcmd(self, message):
         """
-        Коррекция слов по словарю
+        on / off
         """
         arg = utils.get_args_raw(message).lower()
         if arg == "on":
@@ -109,6 +102,9 @@ class SMReplacer(loader.Module):
             await utils.answer(message, self.strings("usage"))
 
     async def watcher(self, event):
+        if not event.out:
+            return
+
         text = event.raw_text
         if not text or text[0] in ".!/?" :
             return
@@ -119,19 +115,9 @@ class SMReplacer(loader.Module):
         if self.smenru:
             ru = text.translate(EN2RU)
             if ru != text and (not self.smcorrect or self._dict_match(ru)):
-                await event.delete()
-                await self._client.send_message(
-                    event.chat_id,
-                    ru,
-                    reply_to=event.reply_to_msg_id
-                )
+                await event.edit(ru)
                 return
 
             en = text.translate(RU2EN)
             if en != text and not self._dict_match(text):
-                await event.delete()
-                await self._client.send_message(
-                    event.chat_id,
-                    en,
-                    reply_to=event.reply_to_msg_id
-                )
+                await event.edit(en)
