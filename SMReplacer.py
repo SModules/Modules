@@ -3,11 +3,10 @@
 
 from .. import loader, utils
 from telethon import events
-from pathlib import Path
 import re
 import aiohttp
 
-__version__ = (3, 1, 1, 0)
+__version__ = (3, 2, 0, 0)
 
 ENG = "qwertyuiop[]asdfghjkl;'zxcvbnm,./"
 RUS = "йцукенгшщзхъфывапролджэячсмитьбю."
@@ -32,7 +31,7 @@ class SMReplacer(loader.Module):
         "smenru_off": "⌨️ Автозамена раскладки выключена",
         "smcorrect_on": "🧠 Коррекция слов включена",
         "smcorrect_off": "🧠 Коррекция слов выключена",
-        "dict_loading": "📥 Загружаю словарь русского языка…",
+        "dict_loading": "📥 Загружаю словарь…",
         "dict_loaded": "📚 Словарь загружен: {} слов",
         "dict_error": "⚠️ Не удалось загрузить словарь",
         "usage": "Используй: on / off"
@@ -42,7 +41,7 @@ class SMReplacer(loader.Module):
         self.smenru = True
         self.smcorrect = True
         self.words = set()
-        self.dict_path = Path(loader.get_dir()) / "russian_words.txt"
+        self.loading = False
 
     async def client_ready(self, client, db):
         self._client = client
@@ -53,28 +52,25 @@ class SMReplacer(loader.Module):
         )
 
     async def _load_dict(self):
-        if self.dict_path.exists():
-            self._read_dict()
+        if self.words or self.loading:
             return
 
+        self.loading = True
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(DICT_URL) as response:
                     raw = await response.read()
 
             text = raw.decode("cp1251", errors="ignore")
-            self.dict_path.write_text(text, encoding="utf-8")
-            self._read_dict()
-        except Exception:
-            pass
-
-    def _read_dict(self):
-        with self.dict_path.open(encoding="utf-8") as file:
             self.words = {
                 line.strip().lower()
-                for line in file
+                for line in text.splitlines()
                 if line.strip()
             }
+        except Exception:
+            self.words = set()
+        finally:
+            self.loading = False
 
     def _dict_match(self, text):
         return any(
@@ -115,6 +111,9 @@ class SMReplacer(loader.Module):
     async def watcher(self, event):
         text = event.raw_text
         if not text or text[0] in ".!/?" :
+            return
+
+        if not self.words:
             return
 
         if self.smenru:
