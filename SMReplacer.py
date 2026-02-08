@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import aiohttp
 
-__version__ = (3, 1, 0, 0)
+__version__ = (3, 1, 1, 0)
 
 ENG = "qwertyuiop[]asdfghjkl;'zxcvbnm,./"
 RUS = "йцукенгшщзхъфывапролджэячсмитьбю."
@@ -23,7 +23,7 @@ WORD_RE = re.compile(r"[а-яА-ЯёЁ]+")
 class SMReplacer(loader.Module):
     """
     Умная автозамена раскладки EN ↔ RU
-    и корректирование слов по словарю русского языка
+    и корректирование слов по публичному словарю
     """
 
     strings = {
@@ -42,7 +42,7 @@ class SMReplacer(loader.Module):
         self.smenru = True
         self.smcorrect = True
         self.words = set()
-        self.dict_path = Path(__file__).with_name("russian_words.txt")
+        self.dict_path = Path(loader.get_dir()) / "russian_words.txt"
 
     async def client_ready(self, client, db):
         self._client = client
