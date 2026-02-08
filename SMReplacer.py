@@ -6,7 +6,7 @@ from telethon import events
 import re
 import aiohttp
 
-__version__ = (3, 5, 1, 0)
+__version__ = (3, 5, 2, 0)
 
 ENG = "qwertyuiop[]asdfghjkl;'zxcvbnm,./"
 RUS = "йцукенгшщзхъфывапролджэячсмитьбю."
@@ -23,7 +23,16 @@ RUS_LETTERS = "абвгдеёжзийклмнопрстуфхцчшщъыьэю�
 @loader.tds
 class SMReplacer(loader.Module):
     """
-    Автозамена раскладки и автокоррекция опечаток
+    SMReplacer
+
+    Умная автозамена раскладки EN ↔ RU
+    и автокоррекция опечаток в русских словах.
+
+    Возможности:
+    • Исправление ошибок раскладки
+    • Автокоррекция слов с одной ошибкой
+    • Работа только с твоими сообщениями
+    • Правка сообщения через edit, без удаления
     """
 
     strings = {
@@ -36,12 +45,18 @@ class SMReplacer(loader.Module):
     }
 
     def __init__(self):
+        """
+        Изначально все режимы выключены
+        """
         self.smenru = False
         self.smcorrect = False
         self.words = set()
         self.loading = False
 
     async def client_ready(self, client, db):
+        """
+        Инициализация модуля и загрузка словаря
+        """
         self._client = client
         await self._load_dict()
         client.add_event_handler(
@@ -50,6 +65,10 @@ class SMReplacer(loader.Module):
         )
 
     async def _load_dict(self):
+        """
+        Загрузка словаря напрямую из публичного репозитория
+        Без сохранения на диск
+        """
         if self.words or self.loading:
             return
 
@@ -69,12 +88,19 @@ class SMReplacer(loader.Module):
             self.loading = False
 
     def _dict_match(self, text):
+        """
+        Проверка: есть ли в тексте слова из словаря
+        """
         return any(
             w in self.words
             for w in WORD_RE.findall(text.lower())
         )
 
     def _fix_word(self, word):
+        """
+        Автокоррекция одного слова
+        Допускается одна ошибка
+        """
         if word in self.words or len(word) < 3 or len(word) > 20:
             return word
 
@@ -106,6 +132,9 @@ class SMReplacer(loader.Module):
         return word
 
     def _autocorrect(self, text):
+        """
+        Автокоррекция всех слов в тексте
+        """
         def repl(match):
             word = match.group(0)
             fixed = self._fix_word(word)
@@ -114,6 +143,9 @@ class SMReplacer(loader.Module):
         return WORD_RE.sub(repl, text)
 
     async def smenrucmd(self, message):
+        """
+        Включить или выключить автозамену раскладки
+        """
         arg = utils.get_args_raw(message).lower()
         if arg == "on":
             self.smenru = True
@@ -125,6 +157,9 @@ class SMReplacer(loader.Module):
             await utils.answer(message, self.strings("usage"))
 
     async def smcorrectcmd(self, message):
+        """
+        Включить или выключить автокоррекцию
+        """
         arg = utils.get_args_raw(message).lower()
         if arg == "on":
             self.smcorrect = True
@@ -136,6 +171,9 @@ class SMReplacer(loader.Module):
             await utils.answer(message, self.strings("usage"))
 
     async def watcher(self, event):
+        """
+        Основная логика обработки сообщений
+        """
         if not event.out:
             return
 
