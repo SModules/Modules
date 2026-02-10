@@ -12,34 +12,30 @@ class SMGlRestrict(loader.Module):
     """
     SMGlRestrict
 
-    Глобальный бан / мут пользователя
-    во всех чатах, где ты администратор
-    с правом ban_users.
+    Глобальный бан / мут во всех чатах,
+    где ты администратор с ban_users.
     """
 
     strings = {
         "name": "SMGlRestrict",
         "no_args": "❌ <b>Укажи пользователя или ответь на сообщение.</b>",
-        "ban_start": "🚫 <b>Глобальный бан {}</b>",
+        "ban_start": "🚫 <b>Глобальный бан</b>: <code>{}</code>",
         "ban_done": "🚫 <b>Забанен в {} чатах.</b>",
-        "unban_start": "✅ <b>Глобальный разбан {}</b>",
+        "unban_start": "✅ <b>Глобальный разбан</b>: <code>{}</code>",
         "unban_done": "✅ <b>Разбанен в {} чатах.</b>",
-        "mute_start": "🔇 <b>Глобальный мут {}</b>",
+        "mute_start": "🔇 <b>Глобальный мут</b>: <code>{}</code>",
         "mute_done": "🔇 <b>Замучен в {} чатах.</b>",
-        "unmute_start": "🔊 <b>Глобальный размут {}</b>",
+        "unmute_start": "🔊 <b>Глобальный размут</b>: <code>{}</code>",
         "unmute_done": "🔊 <b>Размучен в {} чатах.</b>",
     }
-
-    # ---------- utils ----------
 
     def _get_name(self, user):
         if hasattr(user, "title"):
             return utils.escape_html(user.title)
 
-        return utils.escape_html(
-            f"{getattr(user, 'first_name', '') or ''} "
-            f"{getattr(user, 'last_name', '') or ''}".strip()
-        )
+        first = getattr(user, "first_name", "") or ""
+        last = getattr(user, "last_name", "") or ""
+        return utils.escape_html(f"{first} {last}".strip() or "user")
 
     async def _get_target(self, message: Message):
         args = utils.get_args(message)
@@ -60,21 +56,21 @@ class SMGlRestrict(loader.Module):
 
     async def _iter_admin_chats(self):
         async for dialog in self._client.iter_dialogs():
-            entity = dialog.entity
+            chat = dialog.entity
 
-            if not isinstance(entity, (Chat, Channel)):
+            if not isinstance(chat, (Chat, Channel)):
                 continue
 
-            if isinstance(entity, Channel) and not entity.megagroup:
+            if isinstance(chat, Channel) and not chat.megagroup:
                 continue
 
-            rights = getattr(entity, "admin_rights", None)
+            rights = getattr(chat, "admin_rights", None)
             if not rights or not rights.ban_users:
                 continue
 
-            yield entity
+            yield chat
 
-    async def _restrict(self, user, rights: dict):
+    async def _restrict(self, user, rights):
         count = 0
 
         async for chat in self._iter_admin_chats():
@@ -86,11 +82,7 @@ class SMGlRestrict(loader.Module):
 
         return count
 
-    # ---------- commands ----------
-
-    @loader.command(
-        ru_doc="<реплай | юзер> — глобально забанить",
-    )
+    @loader.command()
     async def glbancmd(self, message: Message):
         user = await self._get_target(message)
         if not user:
@@ -102,108 +94,21 @@ class SMGlRestrict(loader.Module):
 
         count = await self._restrict(
             user,
-            {
-                "view_messages": False,
-                "send_messages": False,
-                "send_media": False,
-                "send_stickers": False,
-                "send_gifs": False,
-                "send_games": False,
-                "send_inline": False,
-                "send_polls": False,
-                "change_info": False,
-                "invite_users": False,
-            },
+            dict.fromkeys(
+                [
+                    "view_messages",
+                    "send_messages",
+                    "send_media",
+                    "send_stickers",
+                    "send_gifs",
+                    "send_games",
+                    "send_inline",
+                    "send_polls",
+                    "change_info",
+                    "invite_users",
+                ],
+                False,
+            ),
         )
 
         await utils.answer(message, self.strings("ban_done").format(count))
-
-    @loader.command(
-        ru_doc="<реплай | юзер> — глобально разбанить",
-    )
-    async def glunbancmd(self, message: Message):
-        user = await self._get_target(message)
-        if not user:
-            await utils.answer(message, self.strings("no_args"))
-            return
-
-        name = self._get_name(user)
-        await utils.answer(message, self.strings("unban_start").format(name))
-
-        count = await self._restrict(
-            user,
-            {
-                "view_messages": True,
-                "send_messages": True,
-                "send_media": True,
-                "send_stickers": True,
-                "send_gifs": True,
-                "send_games": True,
-                "send_inline": True,
-                "send_polls": True,
-                "change_info": True,
-                "invite_users": True,
-            },
-        )
-
-        await utils.answer(message, self.strings("unban_done").format(count))
-
-    @loader.command(
-        ru_doc="<реплай | юзер> — глобально замутить",
-    )
-    async def glmutecmd(self, message: Message):
-        user = await self._get_target(message)
-        if not user:
-            await utils.answer(message, self.strings("no_args"))
-            return
-
-        name = self._get_name(user)
-        await utils.answer(message, self.strings("mute_start").format(name))
-
-        count = await self._restrict(
-            user,
-            {
-                "view_messages": True,
-                "send_messages": False,
-                "send_media": False,
-                "send_stickers": False,
-                "send_gifs": False,
-                "send_games": False,
-                "send_inline": False,
-                "send_polls": False,
-                "change_info": False,
-                "invite_users": False,
-            },
-        )
-
-        await utils.answer(message, self.strings("mute_done").format(count))
-
-    @loader.command(
-        ru_doc="<реплай | юзер> — глобально размутить",
-    )
-    async def glunmutecmd(self, message: Message):
-        user = await self._get_target(message)
-        if not user:
-            await utils.answer(message, self.strings("no_args"))
-            return
-
-        name = self._get_name(user)
-        await utils.answer(message, self.strings("unmute_start").format(name))
-
-        count = await self._restrict(
-            user,
-            {
-                "view_messages": True,
-                "send_messages": True,
-                "send_media": True,
-                "send_stickers": True,
-                "send_gifs": True,
-                "send_games": True,
-                "send_inline": True,
-                "send_polls": True,
-                "change_info": True,
-                "invite_users": True,
-            },
-        )
-
-        await utils.answer(message, self.strings("unmute_done").format(count))
