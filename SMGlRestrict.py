@@ -14,7 +14,9 @@ class SMGlRestrict(loader.Module):
     """
     SMGlRestrict
 
-    Global ban / mute with time and reason
+    Глобальный бан / мут пользователя
+    во всех чатах, где ты администратор.
+    Поддерживает время и причину.
     """
 
     strings = {
@@ -28,7 +30,7 @@ class SMGlRestrict(loader.Module):
         "unmute_done": "🔊 <b>Размучен в {} чатах.</b>",
     }
 
-    # -------- helpers --------
+    # ---------- helpers ----------
 
     def _get_name(self, user):
         if hasattr(user, "title"):
@@ -39,17 +41,14 @@ class SMGlRestrict(loader.Module):
         return utils.escape_html(f"{first} {last}".strip() or "user")
 
     def _parse_time(self, text: str) -> int:
-        """
-        10m / 2h / 3d / 30s
-        """
         if not text:
             return 0
 
-        match = re.match(r"^(\d+)([smhd])$", text.lower())
-        if not match:
+        m = re.match(r"^(\d+)([smhd])$", text.lower())
+        if not m:
             return 0
 
-        value, unit = match.groups()
+        value, unit = m.groups()
         value = int(value)
 
         return {
@@ -120,9 +119,12 @@ class SMGlRestrict(loader.Module):
 
         return duration, reason
 
-    # -------- commands --------
+    # ---------- commands ----------
 
-    @loader.command()
+    @loader.command(
+        ru_doc="<реплай | юзер> [время] [причина] — глобально забанить пользователя",
+        en_doc="<reply | user> [time] [reason] — globally ban user",
+    )
     async def glbancmd(self, message: Message):
         user = await self._get_target(message)
         if not user:
@@ -157,10 +159,14 @@ class SMGlRestrict(loader.Module):
 
         await utils.answer(
             message,
-            f"{self.strings('ban_done').format(count)}\n<b>Причина:</b> <i>{utils.escape_html(reason)}</i>",
+            f"{self.strings('ban_done').format(count)}\n"
+            f"<b>Причина:</b> <i>{utils.escape_html(reason)}</i>",
         )
 
-    @loader.command()
+    @loader.command(
+        ru_doc="<реплай | юзер> — глобально разбанить пользователя",
+        en_doc="<reply | user> — globally unban user",
+    )
     async def glunbancmd(self, message: Message):
         user = await self._get_target(message)
         if not user:
@@ -189,7 +195,10 @@ class SMGlRestrict(loader.Module):
 
         await utils.answer(message, self.strings("unban_done").format(count))
 
-    @loader.command()
+    @loader.command(
+        ru_doc="<реплай | юзер> [время] [причина] — глобально замутить пользователя",
+        en_doc="<reply | user> [time] [reason] — globally mute user",
+    )
     async def glmutecmd(self, message: Message):
         user = await self._get_target(message)
         if not user:
@@ -221,10 +230,14 @@ class SMGlRestrict(loader.Module):
 
         await utils.answer(
             message,
-            f"{self.strings('mute_done').format(count)}\n<b>Причина:</b> <i>{utils.escape_html(reason)}</i>",
+            f"{self.strings('mute_done').format(count)}\n"
+            f"<b>Причина:</b> <i>{utils.escape_html(reason)}</i>",
         )
 
-    @loader.command()
+    @loader.command(
+        ru_doc="<реплай | юзер> — глобально размутить пользователя",
+        en_doc="<reply | user> — globally unmute user",
+    )
     async def glunmutecmd(self, message: Message):
         user = await self._get_target(message)
         if not user:
