@@ -3,6 +3,8 @@
 
 from .. import loader, utils
 from telethon.tl.types import Chat, Channel, Message
+import time
+import re
 
 __version__ = (1, 4, 2, 5)
 
@@ -12,8 +14,7 @@ class SMGlRestrict(loader.Module):
     """
     SMGlRestrict
 
-    Глобальный бан / мут во всех чатах,
-    где ты администратор с ban_users.
+    Global ban / mute with time and reason
     """
 
     strings = {
@@ -21,13 +22,13 @@ class SMGlRestrict(loader.Module):
         "no_args": "❌ <b>Укажи пользователя или ответь на сообщение.</b>",
         "ban_start": "🚫 <b>Глобальный бан</b>: <code>{}</code>",
         "ban_done": "🚫 <b>Забанен в {} чатах.</b>",
-        "unban_start": "✅ <b>Глобальный разбан</b>: <code>{}</code>",
         "unban_done": "✅ <b>Разбанен в {} чатах.</b>",
         "mute_start": "🔇 <b>Глобальный мут</b>: <code>{}</code>",
         "mute_done": "🔇 <b>Замучен в {} чатах.</b>",
-        "unmute_start": "🔊 <b>Глобальный размут</b>: <code>{}</code>",
         "unmute_done": "🔊 <b>Размучен в {} чатах.</b>",
     }
+
+    # -------- helpers --------
 
     def _get_name(self, user):
         if hasattr(user, "title"):
@@ -36,6 +37,27 @@ class SMGlRestrict(loader.Module):
         first = getattr(user, "first_name", "") or ""
         last = getattr(user, "last_name", "") or ""
         return utils.escape_html(f"{first} {last}".strip() or "user")
+
+    def _parse_time(self, text: str) -> int:
+        """
+        10m / 2h / 3d / 30s
+        """
+        if not text:
+            return 0
+
+        match = re.match(r"^(\d+)([smhd])$", text.lower())
+        if not match:
+            return 0
+
+        value, unit = match.groups()
+        value = int(value)
+
+        return {
+            "s": value,
+            "m": value * 60,
+            "h": value * 3600,
+            "d": value * 86400,
+        }[unit]
 
     async def _get_target(self, message: Message):
         args = utils.get_args(message)
@@ -47,10 +69,7 @@ class SMGlRestrict(loader.Module):
 
         reply = await message.get_reply_message()
         if reply:
-            try:
-                return await self._client.get_entity(reply.sender_id)
-            except Exception:
-                return None
+            return await self._client.get_entity(reply.sender_id)
 
         return None
 
@@ -70,17 +89,38 @@ class SMGlRestrict(loader.Module):
 
             yield chat
 
-    async def _restrict(self, user, rights):
+    async def _restrict(self, user, rights, until_date=0):
         count = 0
 
         async for chat in self._iter_admin_chats():
             try:
-                await self._client.edit_permissions(chat, user, **rights)
+                await self._client.edit_permissions(
+                    chat,
+                    user,
+                    until_date=until_date,
+                    **rights,
+                )
                 count += 1
             except Exception:
                 pass
 
         return count
+
+    def _parse_args(self, message: Message):
+        args = utils.get_args(message)
+        duration = 0
+        reason = "Not specified"
+
+        if len(args) >= 2:
+            duration = self._parse_time(args[1])
+            if len(args) > 2:
+                reason = " ".join(args[2:])
+        elif len(args) == 1:
+            duration = self._parse_time(args[0])
+
+        return duration, reason
+
+    # -------- commands --------
 
     @loader.command()
     async def glbancmd(self, message: Message):
@@ -88,6 +128,9 @@ class SMGlRestrict(loader.Module):
         if not user:
             await utils.answer(message, self.strings("no_args"))
             return
+
+        duration, reason = self._parse_args(message)
+        until = int(time.time() + duration) if duration else 0
 
         name = self._get_name(user)
         await utils.answer(message, self.strings("ban_start").format(name))
@@ -109,6 +152,100 @@ class SMGlRestrict(loader.Module):
                 ],
                 False,
             ),
+            until,
         )
 
-        await utils.answer(message, self.strings("ban_done").format(count))
+        await utils.answer(
+            message,
+            f"{self.strings('ban_done').format(count)}\n<b>Причина:</b> <i>{utils.escape_html(reason)}</i>",
+        )
+
+    @loader.command()
+    async def glunbancmd(self, message: Message):
+        user = await self._get_target(message)
+        if not user:
+            await utils.answer(message, self.strings("no_args"))
+            return
+
+        count = await self._restrict(
+            user,
+            dict.fromkeys(
+                [
+                    "view_messages",
+                    "send_messages",
+                    "send_media",
+                    "send_stickers",
+                    "send_gifs",
+                    "send_games",
+                    "send_inline",
+                    "send_polls",
+                    "change_info",
+                    "invite_users",
+                ],
+                True,
+            ),
+            0,
+        )
+
+        await utils.answer(message, self.strings("unban_done").format(count))
+
+    @loader.command()
+    async def glmutecmd(self, message: Message):
+        user = await self._get_target(message)
+        if not user:
+            await utils.answer(message, self.strings("no_args"))
+            return
+
+        duration, reason = self._parse_args(message)
+        until = int(time.time() + duration) if duration else 0
+
+        name = self._get_name(user)
+        await utils.answer(message, self.strings("mute_start").format(name))
+
+        count = await self._restrict(
+            user,
+            {
+                "view_messages": True,
+                "send_messages": False,
+                "send_media": False,
+                "send_stickers": False,
+                "send_gifs": False,
+                "send_games": False,
+                "send_inline": False,
+                "send_polls": False,
+                "change_info": False,
+                "invite_users": False,
+            },
+            until,
+        )
+
+        await utils.answer(
+            message,
+            f"{self.strings('mute_done').format(count)}\n<b>Причина:</b> <i>{utils.escape_html(reason)}</i>",
+        )
+
+    @loader.command()
+    async def glunmutecmd(self, message: Message):
+        user = await self._get_target(message)
+        if not user:
+            await utils.answer(message, self.strings("no_args"))
+            return
+
+        count = await self._restrict(
+            user,
+            {
+                "view_messages": True,
+                "send_messages": True,
+                "send_media": True,
+                "send_stickers": True,
+                "send_gifs": True,
+                "send_games": True,
+                "send_inline": True,
+                "send_polls": True,
+                "change_info": True,
+                "invite_users": True,
+            },
+            0,
+        )
+
+        await utils.answer(message, self.strings("unmute_done").format(count))
