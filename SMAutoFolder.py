@@ -15,11 +15,11 @@ class AutoFolder(loader.Module):
     """
 
     strings = {
-        "name": "AutoFolder",
-        "on": "📁 AutoFolder включён",
-        "off": "📁 AutoFolder выключен",
+        "name": "SMAutoFolder",
+        "on": "📁 SMAutoFolder включён",
+        "off": "📁 SMAutoFolder выключен",
         "status": (
-            "📂 AutoFolder: {state}\n"
+            "📂 SMAutoFolder: {state}\n"
             "Режим: {mode}\n"
             "Таймер: {hours}ч\n"
             "Игнор: {ignore}"
