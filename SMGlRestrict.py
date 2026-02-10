@@ -30,14 +30,31 @@ class SMGlRestrict(loader.Module):
         "unmute_done": "🔊 <b>Размучен в {} чатах.</b>",
     }
 
+    # ---------- utils ----------
+
+    def _get_name(self, user):
+        if hasattr(user, "title"):
+            return utils.escape_html(user.title)
+
+        return utils.escape_html(
+            f"{getattr(user, 'first_name', '') or ''} "
+            f"{getattr(user, 'last_name', '') or ''}".strip()
+        )
+
     async def _get_target(self, message: Message):
         args = utils.get_args(message)
         if args:
-            return await self._client.get_entity(args[0])
+            try:
+                return await self._client.get_entity(args[0])
+            except Exception:
+                return None
 
         reply = await message.get_reply_message()
         if reply:
-            return await self._client.get_entity(reply.sender_id)
+            try:
+                return await self._client.get_entity(reply.sender_id)
+            except Exception:
+                return None
 
         return None
 
@@ -69,6 +86,8 @@ class SMGlRestrict(loader.Module):
 
         return count
 
+    # ---------- commands ----------
+
     @loader.command(
         ru_doc="<реплай | юзер> — глобально забанить",
     )
@@ -78,7 +97,7 @@ class SMGlRestrict(loader.Module):
             await utils.answer(message, self.strings("no_args"))
             return
 
-        name = utils.escape_html(utils.get_display_name(user))
+        name = self._get_name(user)
         await utils.answer(message, self.strings("ban_start").format(name))
 
         count = await self._restrict(
@@ -108,7 +127,7 @@ class SMGlRestrict(loader.Module):
             await utils.answer(message, self.strings("no_args"))
             return
 
-        name = utils.escape_html(utils.get_display_name(user))
+        name = self._get_name(user)
         await utils.answer(message, self.strings("unban_start").format(name))
 
         count = await self._restrict(
@@ -138,7 +157,7 @@ class SMGlRestrict(loader.Module):
             await utils.answer(message, self.strings("no_args"))
             return
 
-        name = utils.escape_html(utils.get_display_name(user))
+        name = self._get_name(user)
         await utils.answer(message, self.strings("mute_start").format(name))
 
         count = await self._restrict(
@@ -168,7 +187,7 @@ class SMGlRestrict(loader.Module):
             await utils.answer(message, self.strings("no_args"))
             return
 
-        name = utils.escape_html(utils.get_display_name(user))
+        name = self._get_name(user)
         await utils.answer(message, self.strings("unmute_start").format(name))
 
         count = await self._restrict(
