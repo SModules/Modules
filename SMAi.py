@@ -80,7 +80,7 @@ class SMai(loader.Module):
         headers = {"Authorization": f"Bearer {API_KEY}"}
 
         payload = {
-            "model": "nano-banana-pro",
+            "model": "flux-2-dev",
             "prompt": prompt,
             "ratio": "16:9"
         }
