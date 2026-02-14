@@ -42,7 +42,7 @@ class SMai(loader.Module):
         }
 
         payload = {
-            "model": "gpt-4o-mini",
+            "model": "gpt-5.2-chat",
             "messages": [
                 {"role": "user", "content": text}
             ]
