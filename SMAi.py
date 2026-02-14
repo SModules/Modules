@@ -4,9 +4,10 @@
 from .. import loader, utils
 import aiohttp
 
-__version__ = (1, 0, 0, 0)
+__version__ = (1, 2, 0, 0)
 
-API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+API_URL = "https://api.onlysq.ru/ai/openai/chat/completions"
+API_KEY = "openai"
 
 
 @loader.tds
@@ -35,24 +36,24 @@ class SMai(loader.Module):
 
         await message.edit("🤖 thinking...")
 
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json"
+        }
+
         payload = {
-            "inputs": text,
-            "parameters": {
-                "max_new_tokens": 400,
-                "temperature": 0.7
-            }
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "user", "content": text}
+            ]
         }
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(API_URL, json=payload) as resp:
+                async with session.post(API_URL, headers=headers, json=payload) as resp:
                     data = await resp.json()
 
-            if isinstance(data, list):
-                answer = data[0]["generated_text"]
-            else:
-                answer = str(data)
-
+            answer = data["choices"][0]["message"]["content"]
             await message.edit(answer[:4000])
 
         except Exception as e:
