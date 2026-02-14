@@ -48,7 +48,7 @@ class SMai(loader.Module):
         }
 
         payload = {
-            "model": "gpt-4o-mini",
+            "model": "gpt-5",
             "messages": [{"role": "user", "content": text}]
         }
 
@@ -80,7 +80,7 @@ class SMai(loader.Module):
         headers = {"Authorization": f"Bearer {API_KEY}"}
 
         payload = {
-            "model": "flux",
+            "model": "nano-banana-pro",
             "prompt": prompt,
             "ratio": "16:9"
         }
