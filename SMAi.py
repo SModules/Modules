@@ -6,7 +6,7 @@ import aiohttp
 import base64
 import io
 
-__version__ = (1, 6, 0, 0)
+__version__ = (1, 8, 0, 0)
 
 API_KEY = "openai"
 
@@ -20,16 +20,12 @@ DELETE_URL = "https://cloud.onlysq.ru/delete"
 
 @loader.tds
 class SMai(loader.Module):
-    """
-    SMai
-    """
+    """SMai Deluxe"""
 
     strings = {"name": "SMai"}
 
     async def smaicmd(self, message):
-        """
-        <text or reply>
-        """
+        """<text or reply>"""
         text = utils.get_args_raw(message)
 
         if not text:
@@ -38,9 +34,12 @@ class SMai(loader.Module):
                 text = reply.raw_text
 
         if not text:
-            return await utils.answer(message, "Write something")
+            return await utils.answer(
+                message,
+                "Введите текст или ответьте на сообщение."
+            )
 
-        await message.edit("🤖 thinking...")
+        await message.edit("SMai думает...")
 
         headers = {
             "Authorization": f"Bearer {API_KEY}",
@@ -48,46 +47,60 @@ class SMai(loader.Module):
         }
 
         payload = {
-            "model": "gpt-5",
-            "messages": [{"role": "user", "content": text}]
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "user", "content": text}
+            ]
         }
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(CHAT_URL, headers=headers, json=payload) as resp:
+                async with session.post(
+                    CHAT_URL,
+                    headers=headers,
+                    json=payload
+                ) as resp:
                     data = await resp.json(content_type=None)
 
             if "choices" not in data:
                 return await message.edit(str(data)[:3000])
 
             answer = data["choices"][0]["message"]["content"]
-            await message.edit(answer[:4000])
+
+            await message.delete()
+            await message.respond(
+                f"<b>SMai</b>\n"
+                f"<blockquote>{answer[:3800]}</blockquote>",
+                parse_mode="html"
+            )
 
         except Exception as e:
             await message.edit(f"Error: {e}")
 
     async def smimgcmd(self, message):
-        """
-        <prompt>
-        """
+        """<prompt>"""
         prompt = utils.get_args_raw(message)
 
         if not prompt:
-            return await utils.answer(message, "Write prompt")
+            return await utils.answer(message, "Введите описание изображения.")
 
-        await message.edit("🎨 generating image...")
+        await message.edit("Генерация изображения...")
 
         headers = {"Authorization": f"Bearer {API_KEY}"}
 
         payload = {
-            "model": "flux-2-dev",
+            "model": "flux",
             "prompt": prompt,
             "ratio": "16:9"
         }
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(IMG_URL, headers=headers, json=payload) as resp:
+                async with session.post(
+                    IMG_URL,
+                    headers=headers,
+                    json=payload
+                ) as resp:
                     data = await resp.json(content_type=None)
 
             if "files" not in data:
@@ -95,23 +108,26 @@ class SMai(loader.Module):
 
             img_data = base64.b64decode(data["files"][0])
             file = io.BytesIO(img_data)
-            file.name = "image.png"
+            file.name = "SMai_image.png"
 
             await message.delete()
-            await message.respond(file=file)
+            await message.respond(
+                file=file,
+                message=f"<b>SMai Image</b>\n<blockquote>{prompt}</blockquote>",
+                parse_mode="html"
+            )
 
         except Exception as e:
             await message.edit(f"Error: {e}")
 
     async def smuploadcmd(self, message):
-        """
-        reply file
-        """
+        """reply file"""
         reply = await message.get_reply_message()
-        if not reply or not reply.file:
-            return await utils.answer(message, "Reply to file")
 
-        await message.edit("📤 uploading...")
+        if not reply or not reply.file:
+            return await utils.answer(message, "Ответьте на файл для загрузки.")
+
+        await message.edit("Загрузка файла...")
 
         file_bytes = await reply.download_media(bytes)
         filename = reply.file.name or "file.bin"
@@ -126,12 +142,17 @@ class SMai(loader.Module):
             )
 
             async with aiohttp.ClientSession() as session:
-                async with session.post(UPLOAD_URL, data=data) as resp:
+                async with session.post(
+                    UPLOAD_URL,
+                    data=data
+                ) as resp:
                     result = await resp.json(content_type=None)
 
             if result.get("ok"):
                 await message.edit(
-                    f"✅ Uploaded\n🔗 {result.get('url')}\n🔑 Owner: {result.get('owner')}"
+                    f"Файл загружен.\n"
+                    f"{result.get('url')}\n"
+                    f"Owner: {result.get('owner')}"
                 )
             else:
                 await message.edit(str(result))
@@ -140,18 +161,16 @@ class SMai(loader.Module):
             await message.edit(f"Error: {e}")
 
     async def smdownloadcmd(self, message):
-        """
-        <fileid or link>
-        """
+        """<fileid or link>"""
         arg = utils.get_args_raw(message)
 
         if not arg:
-            return await utils.answer(message, "Write file id or link")
+            return await utils.answer(message, "Укажите fileid или ссылку.")
 
         if "cloud.onlysq.ru" in arg:
             arg = arg.rstrip("/").split("/")[-1]
 
-        await message.edit("📥 downloading...")
+        await message.edit("Скачивание файла...")
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -172,13 +191,14 @@ class SMai(loader.Module):
             await message.edit(f"Error: {e}")
 
     async def smdeletecmd(self, message):
-        """
-        <fileid or link> <ownerkey>
-        """
+        """<fileid or link> <ownerkey>"""
         args = utils.get_args_raw(message).split()
 
         if len(args) < 2:
-            return await utils.answer(message, "Write fileid/link and ownerkey")
+            return await utils.answer(
+                message,
+                "Укажите fileid/ссылку и ownerkey."
+            )
 
         fileid = args[0]
         ownerkey = args[1]
@@ -188,7 +208,7 @@ class SMai(loader.Module):
 
         headers = {"Authorization": ownerkey}
 
-        await message.edit("🗑 deleting...")
+        await message.edit("Удаление файла...")
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -199,7 +219,7 @@ class SMai(loader.Module):
                     result = await resp.json(content_type=None)
 
             if result.get("ok"):
-                await message.edit("✅ Deleted")
+                await message.edit("Файл удалён.")
             else:
                 await message.edit(str(result))
 
