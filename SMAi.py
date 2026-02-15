@@ -89,7 +89,7 @@ class SMai(loader.Module):
         headers = {"Authorization": f"Bearer {API_KEY}"}
 
         payload = {
-            "model": "gpt-image-1.5",
+            "model": "flux",
             "prompt": prompt,
             "ratio": "16:9"
         }
