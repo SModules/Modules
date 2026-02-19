@@ -3,27 +3,40 @@
 
 from .. import loader, utils
 
-__version__ = (1, 5, 0, 0)
+__version__ = (1, 6, 0, 0)
 
 
 @loader.tds
 class RPAdvanced(loader.Module):
     """
-    RPAdvanced Correct Order
+    RPAdvanced correct order
     """
 
     strings = {
         "name": "RPAdvanced"
     }
 
+    # =========================
+    # 🎯 Получение цели (твой фикс)
+    # =========================
+
     async def _target(self, message):
         reply = await message.get_reply_message()
         if not reply:
             return None, None
 
-        user = await reply.get_sender()
-        link = f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+        try:
+            user = await message.client.get_entity(reply.sender_id)
+            name = getattr(user, "first_name", None) or getattr(user, "title", "User")
+            link = f'<a href="tg://user?id={user.id}">{name}</a>'
+        except Exception:
+            return None, None
+
         return reply, link
+
+    # =========================
+    # ⚙️ Основная логика
+    # =========================
 
     async def _send(self, message, base_action):
         reply, target = await self._target(message)
@@ -36,16 +49,16 @@ class RPAdvanced(loader.Module):
         extra_action = parts[0].strip() if parts else ""
         replica = parts[1].strip() if len(parts) > 1 else ""
 
-        action_text = f"{base_action} {target}"
+        text = f"{base_action} {target}"
         if extra_action:
-            action_text += f" {extra_action}"
+            text += f" {extra_action}"
 
-        text = f"👤 <b>{action_text}</b>"
+        result = f"👤 <b>{text}</b>"
 
         if replica:
-            text += f'\n💬 <i>"{replica}"</i>'
+            result += f'\n💬 <i>"{replica}"</i>'
 
-        await message.edit(text, parse_mode="html")
+        await message.edit(result, parse_mode="html")
 
     # =========================
     # 💞 Обычные RP
@@ -92,7 +105,7 @@ class RPAdvanced(loader.Module):
         await self._send(message, "страстно поцеловал")
 
     # =========================
-    # 🔥 18+ RP
+    # 🔥 18+ RP (без жёсткой графики)
     # =========================
 
     async def rmoancmd(self, message):
