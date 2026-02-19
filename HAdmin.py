@@ -1,4 +1,4 @@
-# meta developer: @sova_modules
+# meta developer: @sotka_modules
 # scope: heroku_only
 
 __version__ = (3, 8, 8, 1)
