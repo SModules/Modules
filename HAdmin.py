@@ -1,7 +1,7 @@
-# meta developer: @sotka_modules
+# meta developer: @sova_modules
 # scope: heroku_only
 
-__version__ = (3, 8, 8, 0)
+__version__ = (3, 8, 8, 1)
 
 import re
 import time
@@ -155,6 +155,20 @@ class HAdmin(loader.Module):
 
         await utils.answer(m, txt)
 
+    async def haunmutecmd(self, m):
+        """{user} — снять мут"""
+        args = m.raw_text.split()[1:]
+        u, _ = await self._target(m, args)
+        if not u:
+            return await utils.answer(m, self.strings("no_user"))
+
+        await self._apply(m.chat_id, u, send_messages=False)
+
+        await utils.answer(
+            m,
+            self.strings("mute_off").format(n=u.first_name, i=u.id),
+        )
+
     async def habancmd(self, m):
         """{user} {time} {reason} — бан"""
         args = m.raw_text.split()[1:]
@@ -181,3 +195,87 @@ class HAdmin(loader.Module):
             txt += "\n" + self.strings("reason").format(r=r)
 
         await utils.answer(m, txt)
+
+    async def haunbancmd(self, m):
+        """{user} — снять бан"""
+        args = m.raw_text.split()[1:]
+        u, _ = await self._target(m, args)
+        if not u:
+            return await utils.answer(m, self.strings("no_user"))
+
+        await self._apply(m.chat_id, u)
+
+        await utils.answer(
+            m,
+            self.strings("ban_off").format(n=u.first_name, i=u.id),
+        )
+
+    async def hakickcmd(self, m):
+        """{user} — кик"""
+        args = m.raw_text.split()[1:]
+        u, _ = await self._target(m, args)
+        if not u:
+            return await utils.answer(m, self.strings("no_user"))
+
+        await self._apply(m.chat_id, u, view_messages=True, until_date=1)
+
+        await utils.answer(
+            m,
+            self.strings("kick").format(n=u.first_name, i=u.id),
+        )
+
+    async def hgmute(self, m):
+        """{user} — глобальный мут"""
+        args = m.raw_text.split()[1:]
+        u, _ = await self._target(m, args)
+        if not u:
+            return await utils.answer(m, self.strings("no_user"))
+
+        await self._global(u, send_messages=True)
+
+        await utils.answer(
+            m,
+            self.strings("gmute").format(n=u.first_name, i=u.id),
+        )
+
+    async def hgban(self, m):
+        """{user} — глобальный бан"""
+        args = m.raw_text.split()[1:]
+        u, _ = await self._target(m, args)
+        if not u:
+            return await utils.answer(m, self.strings("no_user"))
+
+        await self._global(u, view_messages=True)
+
+        await utils.answer(
+            m,
+            self.strings("gban").format(n=u.first_name, i=u.id),
+        )
+
+    async def hgunmutecmd(self, m):
+        """{user} — глобальный анмут"""
+        args = m.raw_text.split()[1:]
+        u, _ = await self._target(m, args)
+        if not u:
+            return await utils.answer(m, self.strings("no_user"))
+
+        await self._global(u, send_messages=False)
+
+        await utils.answer(
+            m,
+            self.strings("gunmute").format(n=u.first_name, i=u.id),
+        )
+
+    async def hgunbancmd(self, m):
+        """{user} — глобальный разбан"""
+        args = m.raw_text.split()[1:]
+        u, _ = await self._target(m, args)
+        if not u:
+            return await utils.answer(m, self.strings("no_user"))
+
+        await self._global(u)
+
+        await utils.answer(
+            m,
+            self.strings("gunban").format(n=u.first_name, i=u.id),
+        )
