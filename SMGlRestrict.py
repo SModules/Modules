@@ -6,7 +6,7 @@ from telethon.tl.types import Chat, Channel, Message
 import time
 import re
 
-__version__ = (1, 4, 3, 1)
+__version__ = (1, 4, 3, 2)
 
 
 @loader.tds
@@ -35,54 +35,53 @@ class SMGlRestrict(loader.Module):
     def _get_name(self, user):
         if hasattr(user, "title"):
             return utils.escape_html(user.title)
-
         first = getattr(user, "first_name", "") or ""
         last = getattr(user, "last_name", "") or ""
         return utils.escape_html(f"{first} {last}".strip() or "user")
 
     def _parse_time(self, text: str) -> int:
-        """
-        Parse time like: 10m / 2h / 3d / 30s
-        """
+        """Parse time like: 10m / 2h / 3d / 30s"""
         if not text:
             return 0
-
         m = re.match(r"^(\d+)([smhd])$", text.lower())
         if not m:
             return 0
-
         value, unit = m.groups()
         value = int(value)
-
-        return {
-            "s": value,
-            "m": value * 60,
-            "h": value * 3600,
-            "d": value * 86400,
-        }[unit]
+        return {"s": value, "m": value * 60, "h": value * 3600, "d": value * 86400}[unit]
 
     async def _get_target(self, message: Message, user_arg: str = None):
         """
         Получает пользователя по:
-        - username, id или tg://user?id=123
-        - reply, если нет аргумента
+        - username (@username)
+        - id (число)
+        - tg://user?id=число
+        - reply
         """
         if user_arg:
             user_arg = user_arg.strip()
-            # tg://user?id=123
             tg_match = re.match(r"tg://user\?id=(\d+)", user_arg)
             if tg_match:
-                return await self._client.get_entity(int(tg_match.group(1)))
+                try:
+                    return await self._client.get_entity(int(tg_match.group(1)))
+                except Exception:
+                    return None
+            if user_arg.isdigit():
+                try:
+                    return await self._client.get_entity(int(user_arg))
+                except Exception:
+                    return None
             try:
                 return await self._client.get_entity(user_arg)
             except Exception:
                 return None
 
-        # reply fallback
         reply = await message.get_reply_message()
         if reply:
-            return await self._client.get_entity(reply.sender_id)
-
+            try:
+                return await self._client.get_entity(reply.sender_id)
+            except Exception:
+                return None
         return None
 
     async def _iter_admin_chats(self):
@@ -90,7 +89,6 @@ class SMGlRestrict(loader.Module):
             chat = dialog.entity
             if not isinstance(chat, (Chat, Channel)):
                 continue
-
             rights = getattr(chat, "admin_rights", None)
             if isinstance(chat, Channel) and not rights:
                 try:
@@ -99,22 +97,15 @@ class SMGlRestrict(loader.Module):
                         rights = full
                 except Exception:
                     continue
-
             if not rights or not getattr(rights, "ban_users", True):
                 continue
-
             yield chat
 
     async def _restrict(self, user, rights, until_date=0):
         count = 0
         async for chat in self._iter_admin_chats():
             try:
-                await self._client.edit_permissions(
-                    chat,
-                    user,
-                    until_date=until_date,
-                    **rights,
-                )
+                await self._client.edit_permissions(chat, user, until_date=until_date, **rights)
                 count += 1
             except Exception:
                 pass
@@ -131,22 +122,17 @@ class SMGlRestrict(loader.Module):
         user = None
         duration = 0
         reason = "Not specified"
-
         if not args:
             return user, duration, reason
-
-        # простой парсер
         u_match = re.search(r"-u\s+(\S+)", args)
         t_match = re.search(r"-t\s+(\S+)", args)
         r_match = re.search(r"-r\s+(.+)", args)
-
         if u_match:
             user = u_match.group(1)
         if t_match:
             duration = self._parse_time(t_match.group(1))
         if r_match:
             reason = r_match.group(1).strip()
-
         return user, duration, reason
 
     # ---------- commands ----------
@@ -161,11 +147,9 @@ class SMGlRestrict(loader.Module):
         if not user:
             await utils.answer(message, self.strings("no_args"))
             return
-
         until = int(time.time() + duration) if duration else 0
         name = self._get_name(user)
         await utils.answer(message, self.strings("ban_start").format(name))
-
         count = await self._restrict(
             user,
             dict.fromkeys(
@@ -185,11 +169,9 @@ class SMGlRestrict(loader.Module):
             ),
             until,
         )
-
         await utils.answer(
             message,
-            f"{self.strings('ban_done').format(count)}\n"
-            f"<b>Reason:</b> <i>{utils.escape_html(reason)}</i>",
+            f"{self.strings('ban_done').format(count)}\n<b>Reason:</b> <i>{utils.escape_html(reason)}</i>",
         )
 
     @loader.command(
@@ -202,7 +184,6 @@ class SMGlRestrict(loader.Module):
         if not user:
             await utils.answer(message, self.strings("no_args"))
             return
-
         count = await self._restrict(
             user,
             dict.fromkeys(
@@ -222,7 +203,6 @@ class SMGlRestrict(loader.Module):
             ),
             0,
         )
-
         await utils.answer(message, self.strings("unban_done").format(count))
 
     @loader.command(
@@ -235,11 +215,9 @@ class SMGlRestrict(loader.Module):
         if not user:
             await utils.answer(message, self.strings("no_args"))
             return
-
         until = int(time.time() + duration) if duration else 0
         name = self._get_name(user)
         await utils.answer(message, self.strings("mute_start").format(name))
-
         count = await self._restrict(
             user,
             {
@@ -256,11 +234,9 @@ class SMGlRestrict(loader.Module):
             },
             until,
         )
-
         await utils.answer(
             message,
-            f"{self.strings('mute_done').format(count)}\n"
-            f"<b>Reason:</b> <i>{utils.escape_html(reason)}</i>",
+            f"{self.strings('mute_done').format(count)}\n<b>Reason:</b> <i>{utils.escape_html(reason)}</i>",
         )
 
     @loader.command(
@@ -273,7 +249,6 @@ class SMGlRestrict(loader.Module):
         if not user:
             await utils.answer(message, self.strings("no_args"))
             return
-
         count = await self._restrict(
             user,
             {
@@ -290,5 +265,4 @@ class SMGlRestrict(loader.Module):
             },
             0,
         )
-
         await utils.answer(message, self.strings("unmute_done").format(count))
