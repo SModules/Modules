@@ -6,7 +6,7 @@ from telethon.tl.types import Chat, Channel, Message
 import time
 import re
 
-__version__ = (1, 4, 3, 2)
+__version__ = (1, 4, 4, 0)
 
 
 @loader.tds
@@ -51,13 +51,7 @@ class SMGlRestrict(loader.Module):
         return {"s": value, "m": value * 60, "h": value * 3600, "d": value * 86400}[unit]
 
     async def _get_target(self, message: Message, user_arg: str = None):
-        """
-        Получает пользователя по:
-        - username (@username)
-        - id (число)
-        - tg://user?id=число
-        - reply
-        """
+        """Получает пользователя по username, id, tg://user?id=... или reply"""
         if user_arg:
             user_arg = user_arg.strip()
             tg_match = re.match(r"tg://user\?id=(\d+)", user_arg)
@@ -85,6 +79,7 @@ class SMGlRestrict(loader.Module):
         return None
 
     async def _iter_admin_chats(self):
+        """Итерируем все чаты и каналы, где у нас права на бан"""
         async for dialog in self._client.iter_dialogs():
             chat = dialog.entity
             if not isinstance(chat, (Chat, Channel)):
@@ -112,12 +107,7 @@ class SMGlRestrict(loader.Module):
         return count
 
     def _parse_args(self, message: Message):
-        """
-        Парсим аргументы:
-        -u <user>
-        -t <time>
-        -r <reason>
-        """
+        """Парсим аргументы: -u <user>, -t <time>, -r <reason>"""
         args = utils.get_args_raw(message)
         user = None
         duration = 0
